@@ -4,7 +4,7 @@ import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class EScooterServiceTest {
+class EscooterServiceTest {
 
     static final EScooterId SCOOTER = EScooterId.newOne();
     static final RiderId RIDER = RiderId.newOne();
@@ -14,21 +14,21 @@ class EScooterServiceTest {
     EScooterRepository eScooterRepository = new EScooterRepository();
 
     DemandRepository demandRepository = new DemandRepository();
-
     DemandService demandService = new DemandService(demandRepository);
     EScooterService eScooterService = new EScooterService(reservationRepository, eScooterRepository, demandService);
+
 
     @Test
     void canReserveAvailableScooter() {
         //given
         thereIsScooter(SCOOTER);
+
         //when
         boolean result = eScooterService.reserve(SCOOTER, RIDER);
 
         //then
         assertTrue(result);
         assertTrue(reservationRepository.findByEscooterId(SCOOTER).ownedBy(RIDER));
-
     }
 
     @Test
@@ -49,11 +49,10 @@ class EScooterServiceTest {
     @Test
     void cantReserveWhenInMaintenance() {
         //given
-        thereIsScooterInMaintance(SCOOTER);
-        eScooterService.reserve(SCOOTER, RIDER);
+        thereIsScooterInMaintenance(SCOOTER);
 
         //when
-        boolean result = eScooterService.reserve(SCOOTER, RIDER2);
+        boolean result = eScooterService.reserve(SCOOTER, RIDER);
 
         //then
         assertFalse(result);
@@ -78,14 +77,12 @@ class EScooterServiceTest {
         demandService.save(scooter, Instant.now().plusSeconds(600));
     }
 
-
     private void thereIsScooter(EScooterId scooter) {
         eScooterRepository.save(new EScooter(scooter));
     }
 
-    private void thereIsScooterInMaintance(EScooterId scooter) {
-        eScooterRepository.save(new EScooter(scooter, true));
+    private void thereIsScooterInMaintenance(EScooterId scooter) {
+        thereIsScooter(scooter);
+        eScooterService.putIntoMaintenance(scooter, Instant.now());
     }
-
-
 }

@@ -1,24 +1,11 @@
 import java.time.Duration;
 import java.time.Instant;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
-public class Main {
-    public static void main(String[] args) {
-        System.out.println("Hello world!");
-    }
-}
-
-
-//1 resevation
-//2 expiration
-//3 maintance
 class Reservation {
 
-    public Reservation(RiderId riderId, EScooterId escooterId, Instant validTill) {
-        this.riderId = riderId;
-        this.escooterId = escooterId;
-        this.validTill = validTill;
-    }
 
     enum Status {
         Active, Cancelled, Expired
@@ -26,6 +13,13 @@ class Reservation {
 
     private RiderId riderId;
     private EScooterId escooterId;
+
+    public Reservation(RiderId riderId, EScooterId escooterId, Instant validTill) {
+        this.riderId = riderId;
+        this.escooterId = escooterId;
+        this.validTill = validTill;
+    }
+
     private Instant validTill;
     private Status status = Status.Active;
 
@@ -48,7 +42,6 @@ class Reservation {
     void cancel() {
         status = Status.Cancelled;
     }
-
 
 }
 
@@ -79,6 +72,20 @@ class EScooterService {
         this.demandService = demandService;
     }
 
+    boolean reserve(EScooterId eScooterId, RiderId riderId) {
+        if (reservedBySomeoneElse(eScooterId, riderId, Instant.now())) {
+            return false;
+        }
+        if (isInMaintenance(eScooterId)) {
+            return false;
+        }
+        if (isThereDemand(eScooterId, Instant.now())) {
+            return false;
+        }
+        reservationRepository.save(new Reservation(riderId, eScooterId, tenMinutes()));
+        return true;
+    }
+
     boolean putIntoMaintenance(EScooterId eScooterId, Instant when) {
         if (isReserved(eScooterId, when)) {
             return false;
@@ -101,41 +108,6 @@ class EScooterService {
         return reservation != null && reservation.isActive(when);
     }
 
-    boolean reserve(EScooterId eScooterId, RiderId riderid) {
-        Instant now = Instant.now();
-        if (reservedBySomeoneElse(eScooterId, riderid, now)) {
-            return false;
-        }
-
-        if (isInMaintenance(eScooterId)) {
-            return false;
-        }
-
-        if (isThereDemand(eScooterId, now)) {
-            return false;
-        }
-
-        reservationRepository.save(new Reservation(riderid, eScooterId, tenMinutes()));
-        return true;
-    }
-
-    private boolean isThereDemand(EScooterId eScooterId, Instant when) {
-        return demandService.isDemandFor(eScooterId, when);
-    }
-
-    boolean addDemand(EScooterId eScooterId, Instant when) {
-        if(isReserved(eScooterId, when)) {
-            return false;
-        }
-
-        if (isInMaintenance(eScooterId)) {
-            return false;
-        }
-
-        demandService.save(eScooterId, when);
-        return true;
-    }
-
     private Instant tenMinutes() {
         return Instant.now().plus(Duration.ofMinutes(10));
     }
@@ -145,19 +117,23 @@ class EScooterService {
         return reservation != null && !reservation.ownedBy(riderId) && reservation.isActive(when);
     }
 
-}
-
-class RiderId {
-
-    static RiderId newOne() {
-        return new RiderId(UUID.randomUUID());
+    private boolean isThereDemand(EScooterId eScooterId, Instant when) {
+        return demandService.isDemandFor(eScooterId, when);
     }
 
-    private final UUID no;
+    boolean addDemand(EScooterId eScooterId, Instant when) {
+        if (isReserved(eScooterId, when)) {
+            return false;
+        }
 
-    private RiderId(UUID no) {
-        this.no = no;
+        if (isInMaintenance(eScooterId)) {
+            return false;
+        }
+        demandService.save(eScooterId, when);
+        return true;
     }
+
+
 }
 
 class EScooterId {
@@ -169,6 +145,19 @@ class EScooterId {
     private final UUID no;
 
     private EScooterId(UUID no) {
+        this.no = no;
+    }
+}
+
+class RiderId {
+
+    static RiderId newOne() {
+        return new RiderId(UUID.randomUUID());
+    }
+
+    private final UUID no;
+
+    private RiderId(UUID no) {
         this.no = no;
     }
 }
@@ -192,7 +181,7 @@ class EScooter {
     }
 
     void putIntoMaintenance() {
-        maintenance = false;
+        maintenance = true;
     }
 
     EScooterId id() {
