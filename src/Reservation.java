@@ -62,75 +62,41 @@ class ReservationRepository {
 class EScooterService {
 
     final ReservationRepository reservationRepository;
-    final EScooterRepository eScooterRepository;
-
+    final EScooterAvailabilityRepository availabilityRepo;
     final DemandService demandService;
 
-    EScooterService(ReservationRepository reservationRepository, EScooterRepository eScooterRepository, DemandService demandService) {
+    EScooterService(ReservationRepository reservationRepository, EScooterAvailabilityRepository eScooterRepository, DemandService demandService) {
         this.reservationRepository = reservationRepository;
-        this.eScooterRepository = eScooterRepository;
+        this.availabilityRepo = eScooterRepository;
         this.demandService = demandService;
     }
 
     boolean reserve(EScooterId eScooterId, RiderId riderId) {
-        if (reservedBySomeoneElse(eScooterId, riderId, Instant.now())) {
-            return false;
+        if (take(eScooterId, Instant.now(), tenMinutes())) {
+            reservationRepository.save(new Reservation(riderId, eScooterId, tenMinutes()));
+            return true;
         }
-        if (isInMaintenance(eScooterId)) {
-            return false;
+        return false;
+    }
+
+    boolean addDemand(EScooterId eScooterId, Instant when) {
+        if (take(eScooterId, when, tenMinutes())) {
+            demandService.save(eScooterId, when);
         }
-        if (isThereDemand(eScooterId, Instant.now())) {
-            return false;
-        }
-        reservationRepository.save(new Reservation(riderId, eScooterId, tenMinutes()));
         return true;
     }
 
     boolean putIntoMaintenance(EScooterId eScooterId, Instant when) {
-        if (isReserved(eScooterId, when)) {
-            return false;
-        }
-        if (isThereDemand(eScooterId, when)) {
-            return false;
-        }
-        EScooter eScooter = eScooterRepository.findByEScooterId(eScooterId);
-        eScooter.putIntoMaintenance();
-        eScooterRepository.save(eScooter);
-        return true;
+        return take(eScooterId, when, Instant.MAX);
     }
 
-    private boolean isInMaintenance(EScooterId eScooterId) {
-        return eScooterRepository.findByEScooterId(eScooterId).isInMaintenance();
-    }
-
-    private boolean isReserved(EScooterId eScooterId, Instant when) {
-        Reservation reservation = reservationRepository.findByEscooterId(eScooterId);
-        return reservation != null && reservation.isActive(when);
+    boolean take(EScooterId eScooterId, Instant till, Instant when) {
+        EscooterAvailability availability = availabilityRepo.findByEScooterId(eScooterId);
+        return availability.take(till, when);
     }
 
     private Instant tenMinutes() {
         return Instant.now().plus(Duration.ofMinutes(10));
-    }
-
-    private boolean reservedBySomeoneElse(EScooterId eScooterId, RiderId riderId, Instant when) {
-        Reservation reservation = reservationRepository.findByEscooterId(eScooterId);
-        return reservation != null && !reservation.ownedBy(riderId) && reservation.isActive(when);
-    }
-
-    private boolean isThereDemand(EScooterId eScooterId, Instant when) {
-        return demandService.isDemandFor(eScooterId, when);
-    }
-
-    boolean addDemand(EScooterId eScooterId, Instant when) {
-        if (isReserved(eScooterId, when)) {
-            return false;
-        }
-
-        if (isInMaintenance(eScooterId)) {
-            return false;
-        }
-        demandService.save(eScooterId, when);
-        return true;
     }
 
 
@@ -162,26 +128,31 @@ class RiderId {
     }
 }
 
-class EScooter {
+class EscooterAvailability {
 
     private EScooterId eScooterId;
-    private boolean maintenance;
+    private Instant till;
 
-    EScooter(EScooterId scooter, boolean maintenance) {
+    EscooterAvailability(EScooterId scooter) {
         this.eScooterId = scooter;
-        this.maintenance = maintenance;
+        this.till = null;
     }
 
-    EScooter(EScooterId scooter) {
-        this(scooter, false);
+
+    boolean take(Instant till, Instant when) {
+        if (isAvailable(when)) {
+            this.till = till;
+            return true;
+        }
+        return false;
     }
 
-    boolean isInMaintenance() {
-        return maintenance;
+    boolean isAvailable(Instant when) {
+        return till == null || till.isAfter(when);
     }
 
-    void putIntoMaintenance() {
-        maintenance = true;
+    void release() {
+        till = null;
     }
 
     EScooterId id() {
@@ -189,15 +160,15 @@ class EScooter {
     }
 }
 
-class EScooterRepository {
+class EScooterAvailabilityRepository {
 
-    private Map<EScooterId, EScooter> scooters = new HashMap<>();
+    private Map<EScooterId, EscooterAvailability> scooters = new HashMap<>();
 
-    void save(EScooter eScooter) {
+    void save(EscooterAvailability eScooter) {
         scooters.put(eScooter.id(), eScooter);
     }
 
-    EScooter findByEScooterId(EScooterId eScooterId) {
+    EscooterAvailability findByEScooterId(EScooterId eScooterId) {
         return scooters.get(eScooterId);
     }
 }

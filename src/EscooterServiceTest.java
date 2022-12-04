@@ -11,7 +11,7 @@ class EscooterServiceTest {
     static final RiderId RIDER2 = RiderId.newOne();
 
     ReservationRepository reservationRepository = new ReservationRepository();
-    EScooterRepository eScooterRepository = new EScooterRepository();
+    EScooterAvailabilityRepository eScooterRepository = new EScooterAvailabilityRepository();
 
     DemandRepository demandRepository = new DemandRepository();
     DemandService demandService = new DemandService(demandRepository);
@@ -74,11 +74,11 @@ class EscooterServiceTest {
     }
 
     private void thereIsDemand(EScooterId scooter) {
-        demandService.save(scooter, Instant.now().plusSeconds(600));
+        eScooterService.addDemand(scooter, Instant.now().plusSeconds(600));
     }
 
     private void thereIsScooter(EScooterId scooter) {
-        eScooterRepository.save(new EScooter(scooter));
+        eScooterRepository.save(new EscooterAvailability(scooter));
     }
 
     private void thereIsScooterInMaintenance(EScooterId scooter) {
