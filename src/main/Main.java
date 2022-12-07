@@ -8,8 +8,14 @@ import java.util.stream.Collectors;
 public class Main {
 
     public static void main(String[] args) {
-        System.out.println(Game.between(new Mean(), new Sucker()));
+
     }
+}
+
+interface BehaviorStrategy {
+    Behavior showBehavior();
+
+    void seenBehaviorWas(Behavior card);
 }
 
 enum Behavior {
@@ -18,7 +24,7 @@ enum Behavior {
 }
 
 
-class Game {
+class PlayGame {
 
     static Result between(BehaviorStrategy player, BehaviorStrategy anotherPlayer) {
         Behavior cardOne = player.showBehavior();
@@ -82,56 +88,6 @@ class Result {
                 '}';
     }
 }
-
-
-interface BehaviorStrategy {
-    Behavior showBehavior();
-
-    void seenBehaviorWas(Behavior card);
-}
-
-class Sucker implements BehaviorStrategy {
-
-    @Override
-    public Behavior showBehavior() {
-        return Behavior.COOPERATE;
-    }
-
-    @Override
-    public void seenBehaviorWas(Behavior reaction) {
-    }
-
-    @Override
-    public String toString() {
-        return "Sucker";
-    }
-}
-
-class Mean implements BehaviorStrategy {
-
-    @Override
-    public Behavior showBehavior() {
-        return Behavior.BETRAY;
-    }
-
-    @Override
-    public void seenBehaviorWas(Behavior reaction) {
-    }
-
-    @Override
-    public String toString() {
-        return "Mean";
-    }
-}
-
-
-
-
-
-
-
-
-
 
 
 

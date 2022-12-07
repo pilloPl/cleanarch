@@ -1,2 +1,5 @@
- class Reservation {
+import java.util.UUID;
+
+class Reservation {
 }
+
