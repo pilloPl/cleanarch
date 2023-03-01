@@ -1,6 +1,4 @@
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentMatchers;
-import org.mockito.Mockito;
 
 import java.time.Instant;
 
@@ -8,52 +6,48 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class EScooterServiceTest {
 
-    EScooterAvailabilityService eScooterService = Mockito.mock(EScooterAvailabilityService.class);
+    EScooterAvailabilityRepository eScooterRepository = new EScooterAvailabilityRepository();
+    EScooterAvailabilityService eScooterService = new EScooterAvailabilityService(eScooterRepository);
 
     ReservationRepository reservationRepository = new ReservationRepository();
     ReservationService reservationService = new ReservationService(eScooterService, reservationRepository);
+    //---//
+
 
     static final EScooterId SCOOTER = EScooterId.newOne();
     static final RiderId RIDER = RiderId.newOne();
     static final RiderId RIDER2 = RiderId.newOne();
 
+
     @Test
     void canReserveAvailableScooter() {
         //given
-        thereIsAvailableScooter(SCOOTER);
+        thereIsScooter(SCOOTER);
         //when
         boolean result = reservationService.reserve(SCOOTER, RIDER);
 
         //then
         assertTrue(result);
         assertTrue(reservationRepository.findByEscooterId(SCOOTER).ownedBy(RIDER));
-
-    }
-
-    private void thereIsAvailableScooter(EScooterId scooter) {
-        Mockito.when(eScooterService.take(
-                ArgumentMatchers.eq(SCOOTER),
-                ArgumentMatchers.any(),
-                ArgumentMatchers.any())).thenReturn(true);
     }
 
     @Test
-    void cantReserveUnavailableScooter() {
+    void cantReserveAlreadyTakenScooter() {
         //given
-        thereIsUnavaiableScooter(SCOOTER);
+        thereIsScooter(SCOOTER);
+        reservationService.reserve(SCOOTER, RIDER);
 
         //when
         boolean result = reservationService.reserve(SCOOTER, RIDER2);
 
         //then
         assertFalse(result);
+        assertTrue(reservationRepository.findByEscooterId(SCOOTER).ownedBy(RIDER));
     }
 
-    private void thereIsUnavaiableScooter(EScooterId scooter) {
-        Mockito.when(eScooterService.take(
-                ArgumentMatchers.eq(SCOOTER),
-                ArgumentMatchers.any(),
-                ArgumentMatchers.any())).thenReturn(false);
+
+    private void thereIsScooter(EScooterId scooter) {
+        eScooterRepository.save(new EScooterAvailability(scooter));
     }
 
 }
